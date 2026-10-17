@@ -1,0 +1,109 @@
+- name: Configure Proxmox hosts
+  hosts: proxmox
+
+  tasks:
+    - name: Disable Proxmox enterprise repository
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/pve-enterprise.sources
+        state: absent
+
+    - name: Disable Ceph enterprise repository
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/ceph.sources
+        state: absent
+
+    - name: Enable Proxmox no-subscription repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.sources
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          Types: deb
+          URIs: http://download.proxmox.com/debian/pve
+          Suites: trixie
+          Components: pve-no-subscription
+          Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install subscription nag removal script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/remove-proxmox-subscription-nag
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+    
+          FILE="/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
+    
+          if dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; then
+              exit 0
+          fi
+    
+          sed -i \
+            "s/res\.data\.status\.toLowerCase() !== 'active'/false/g" \
+            "$FILE"
+      register: nag_script
+
+    - name: Install subscription nag APT hook
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/no-nag-script
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          DPkg::Post-Invoke { "/usr/local/bin/remove-proxmox-subscription-nag || true"; };
+      register: nag_hook
+
+    - name: Apply subscription nag removal
+      ansible.builtin.command:
+        cmd: apt-get install --reinstall -y proxmox-widget-toolkit
+      when: nag_script.changed or nag_hook.changed
+
+    - name: Upgrade installed packages
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
+      register: package_upgrade
+
+    - name: Reboot Proxmox hosts
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+      when: package_upgrade.changed
+
+    - name: Set Proxmox hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Set Proxmox hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Configure Proxmox host entries
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {% for host in groups['proxmox'] %}
+          {{ hostvars[host]['ansible_host'] }} {{ host }}
+          {% endfor %}
+
+    # STEP 1.8
+    - name: Check hostname resolution
+      ansible.builtin.command:
+        cmd: getent hosts {{ item }}
+      loop: "{{ groups['proxmox'] }}"
+      changed_when: false
+
+    - name: Check default gateway
+      ansible.builtin.command:
+        cmd: ip route show default
+      register: default_route
+      changed_when: false
+
+    - name: Show default gateway
+      ansible.builtin.debug:
+        var: default_route.stdout
