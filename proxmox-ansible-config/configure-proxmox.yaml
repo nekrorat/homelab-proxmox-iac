@@ -97,13 +97,3 @@
         cmd: getent hosts {{ item }}
       loop: "{{ groups['proxmox'] }}"
       changed_when: false
-
-    - name: Check default gateway
-      ansible.builtin.command:
-        cmd: ip route show default
-      register: default_route
-      changed_when: false
-
-    - name: Show default gateway
-      ansible.builtin.debug:
-        var: default_route.stdout
