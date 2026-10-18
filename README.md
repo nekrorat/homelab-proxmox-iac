@@ -12,3 +12,7 @@ https://pve.proxmox.com/wiki/Package_Repositories
 Remove subscription warning
 https://syncbricks.com/how-to-disable-the-proxmox-subscription-nag-warning/
 
+
+ansible-playbook \                            
+-i proxmox-ansible-config/inventory/hosts.ini \
+proxmox-ansible-config/configure-proxmox.yaml

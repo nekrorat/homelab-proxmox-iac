@@ -1,99 +1,164 @@
-- name: Configure Proxmox hosts
-  hosts: proxmox
+  - name: Configure Proxmox hosts
+    hosts: proxmox
 
-  tasks:
-    - name: Disable Proxmox enterprise repository
-      ansible.builtin.file:
-        path: /etc/apt/sources.list.d/pve-enterprise.sources
-        state: absent
+    tasks:
 
-    - name: Disable Ceph enterprise repository
-      ansible.builtin.file:
-        path: /etc/apt/sources.list.d/ceph.sources
-        state: absent
+      # ---------------------------------------------------------
+      # Step 1.4: Configure Proxmox repositories
+      # ---------------------------------------------------------
 
-    - name: Enable Proxmox no-subscription repository
-      ansible.builtin.copy:
-        dest: /etc/apt/sources.list.d/pve-no-subscription.sources
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          Types: deb
-          URIs: http://download.proxmox.com/debian/pve
-          Suites: trixie
-          Components: pve-no-subscription
-          Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+      - name: Disable Proxmox enterprise repository
+        ansible.builtin.file:
+          path: /etc/apt/sources.list.d/pve-enterprise.sources
+          state: absent
 
-    - name: Update APT cache
-      ansible.builtin.apt:
-        update_cache: true
+      - name: Disable Ceph enterprise repository
+        ansible.builtin.file:
+          path: /etc/apt/sources.list.d/ceph.sources
+          state: absent
 
-    - name: Install subscription nag removal script
-      ansible.builtin.copy:
-        dest: /usr/local/bin/remove-proxmox-subscription-nag
-        owner: root
-        group: root
-        mode: "0755"
-        content: |
-          #!/bin/sh
-    
-          FILE="/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
-    
-          if dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; then
-              exit 0
-          fi
-    
-          sed -i \
-            "s/res\.data\.status\.toLowerCase() !== 'active'/false/g" \
-            "$FILE"
-      register: nag_script
+      - name: Enable Proxmox no-subscription repository
+        ansible.builtin.copy:
+          dest: /etc/apt/sources.list.d/pve-no-subscription.sources
+          owner: root
+          group: root
+          mode: "0644"
+          content: |
+            Types: deb
+            URIs: http://download.proxmox.com/debian/pve
+            Suites: trixie
+            Components: pve-no-subscription
+            Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 
-    - name: Install subscription nag APT hook
-      ansible.builtin.copy:
-        dest: /etc/apt/apt.conf.d/no-nag-script
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          DPkg::Post-Invoke { "/usr/local/bin/remove-proxmox-subscription-nag || true"; };
-      register: nag_hook
+      - name: Update APT cache
+        ansible.builtin.apt:
+          update_cache: true
 
-    - name: Apply subscription nag removal
-      ansible.builtin.command:
-        cmd: apt-get install --reinstall -y proxmox-widget-toolkit
-      when: nag_script.changed or nag_hook.changed
 
-    - name: Upgrade installed packages
-      ansible.builtin.apt:
-        upgrade: dist
-        update_cache: true
-      register: package_upgrade
+      # ---------------------------------------------------------
+      # Step 1.5: Remove Proxmox subscription warning
+      # ---------------------------------------------------------
 
-    - name: Reboot Proxmox hosts
-      ansible.builtin.reboot:
-        reboot_timeout: 600
-      when: package_upgrade.changed
+      - name: Install subscription nag removal script
+        ansible.builtin.copy:
+          dest: /usr/local/bin/remove-proxmox-subscription-nag
+          owner: root
+          group: root
+          mode: "0755"
+          content: |
+            #!/bin/sh
+            
+            FILE="/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
+            
+            if dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; then
+                exit 0
+            fi
+            
+            sed -i \
+              "s/res\.data\.status\.toLowerCase() !== 'active'/false/g" \
+              "$FILE"
+        register: nag_script
 
-    - name: Set Proxmox hostname
-      ansible.builtin.hostname:
-        name: "{{ inventory_hostname }}"
+      - name: Install subscription nag APT hook
+        ansible.builtin.copy:
+          dest: /etc/apt/apt.conf.d/no-nag-script
+          owner: root
+          group: root
+          mode: "0644"
+          content: |
+            DPkg::Post-Invoke { "/usr/local/bin/remove-proxmox-subscription-nag || true"; };
+        register: nag_hook
 
-    - name: Set Proxmox hostname
-      ansible.builtin.hostname:
-        name: "{{ inventory_hostname }}"
+      - name: Apply subscription nag removal
+        ansible.builtin.command:
+          cmd: apt-get install --reinstall -y proxmox-widget-toolkit
+        when: nag_script.changed or nag_hook.changed
 
-    - name: Configure Proxmox host entries
-      ansible.builtin.blockinfile:
-        path: /etc/hosts
-        block: |
-          {% for host in groups['proxmox'] %}
-          {{ hostvars[host]['ansible_host'] }} {{ host }}
-          {% endfor %}
 
-    # STEP 1.8
-    - name: Check hostname resolution
-      ansible.builtin.command:
-        cmd: getent hosts {{ item }}
-      loop: "{{ groups['proxmox'] }}"
-      changed_when: false
+      # ---------------------------------------------------------
+      # Step 1.6: Upgrade and reboot Proxmox hosts
+      # ---------------------------------------------------------
+
+      - name: Upgrade installed packages
+        ansible.builtin.apt:
+          upgrade: dist
+          update_cache: true
+        register: package_upgrade
+
+      - name: Reboot Proxmox hosts
+        ansible.builtin.reboot:
+          reboot_timeout: 600
+        when: package_upgrade.changed
+
+
+      # ---------------------------------------------------------
+      # Step 1.7: Configure common Proxmox host settings
+      # ---------------------------------------------------------
+
+      - name: Set Proxmox hostname
+        ansible.builtin.hostname:
+          name: "{{ inventory_hostname }}"
+
+      - name: Configure Proxmox host entries
+        ansible.builtin.blockinfile:
+          path: /etc/hosts
+          block: |
+            {% for host in groups['proxmox'] %}
+            {{ hostvars[host]['ansible_host'] }} {{ host }}
+            {% endfor %}
+      # ---------------------------------------------------------
+      # Step 1.8: Final connectivity check
+      # ---------------------------------------------------------
+
+      - name: Check Proxmox host connectivity
+        ansible.builtin.command:
+          cmd: ping -c 1 {{ item }}
+        loop: "{{ groups['proxmox'] }}"
+        changed_when: false
+
+      # ---------------------------------------------------------
+      # Step 1.9: Create Proxmox cluster
+      # ---------------------------------------------------------
+
+      - name: Initialize Proxmox cluster
+        ansible.builtin.command:
+          cmd: pvecm create homelab --link0 192.168.8.21
+          creates: /etc/pve/corosync.conf
+        when: inventory_hostname == 'pve01'
+
+      - name: Read pve01 SSH host key
+        ansible.builtin.slurp:
+          src: /etc/ssh/ssh_host_ed25519_key.pub
+        delegate_to: pve01
+        run_once: true
+        register: pve01_host_key
+
+      - name: Trust pve01 SSH host key
+        ansible.builtin.known_hosts:
+          path: /root/.ssh/known_hosts
+          name: "{{ hostvars['pve01']['ansible_host'] }}"
+          key: "{{ hostvars['pve01']['ansible_host'] }} {{ (pve01_host_key.content | b64decode).split()[0] }} {{ (pve01_host_key.content | b64decode).split()[1] }}"
+          state: present
+        when: inventory_hostname != 'pve01'
+
+      - name: Read joining node SSH public key
+        ansible.builtin.slurp:
+          src: /root/.ssh/id_rsa.pub
+        register: joining_node_key
+        when: inventory_hostname != 'pve01'
+
+      - name: Authorize joining node on pve01
+        ansible.posix.authorized_key:
+          user: root
+          key: "{{ joining_node_key.content | b64decode }}"
+          state: present
+        delegate_to: pve01
+        when: inventory_hostname != 'pve01'
+        throttle: 1
+
+      - name: Join Proxmox cluster
+        ansible.builtin.command:
+          cmd: pvecm add 192.168.8.21 --use_ssh
+          creates: /etc/pve/corosync.conf
+        when: inventory_hostname != 'pve01'
+        throttle: 1
