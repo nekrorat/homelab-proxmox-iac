@@ -162,3 +162,37 @@
           creates: /etc/pve/corosync.conf
         when: inventory_hostname != 'pve01'
         throttle: 1
+
+      # ---------------------------------------------------------
+      # Step 1.10: Configure Terraform API access
+      # ---------------------------------------------------------
+
+  - name: Configure Terraform API authentication
+    hosts: pve01
+
+    tasks:
+      - name: Check existing Terraform API token
+        ansible.builtin.command:
+          cmd: pveum user token list root@pam --output-format json
+        register: existing_tokens
+        changed_when: false
+
+      - name: Create Terraform API token
+        ansible.builtin.command:
+          cmd: pveum user token add root@pam terraform --privsep 0 --output-format json
+        register: terraform_token
+        when: >
+          'terraform' not in
+          (existing_tokens.stdout | from_json |
+          map(attribute='tokenid') | list)
+        no_log: true
+
+      - name: Save Terraform API token locally
+        ansible.builtin.copy:
+          dest: "{{ playbook_dir }}/terraform-api-token.env"
+          content: |
+            export PROXMOX_VE_API_TOKEN='root@pam!terraform={{ (terraform_token.stdout | from_json).value }}'
+          mode: "0600"
+        delegate_to: localhost
+        when: terraform_token is changed
+        no_log: true

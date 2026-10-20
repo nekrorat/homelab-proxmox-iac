@@ -1,6 +1,10 @@
 .idea
-.terraform/
+
+# Terraform
+**/.terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
-terraform.tfvars
+*.tfvars
+
+# Ansible credentials
+terraform-api-token.env
