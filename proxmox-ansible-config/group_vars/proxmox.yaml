@@ -1,0 +1,15 @@
+# Ubuntu cloud image
+ubuntu_version: "ubuntu-24.04"
+ubuntu_image_url: "https://cloud-images.ubuntu.com/releases/noble/release/{{ ubuntu_version }}-server-cloudimg-amd64.img"
+ubuntu_image_path: "/var/lib/vz/template/cache/{{ ubuntu_version }}.img"
+
+# Proxmox template
+template_base_id: 9000
+template_name: "{{ ubuntu_version }}-template"
+template_memory: 2048
+template_cores: 2
+template_bridge: vmbr0
+template_network_model: virtio
+template_scsi_controller: virtio-scsi-pci
+template_os_type: l26
+template_storage: local-lvm

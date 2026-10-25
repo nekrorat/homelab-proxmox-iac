@@ -163,9 +163,9 @@
         when: inventory_hostname != 'pve01'
         throttle: 1
 
-      # ---------------------------------------------------------
-      # Step 1.10: Configure Terraform API access
-      # ---------------------------------------------------------
+  # ---------------------------------------------------------
+  # Step 1.10: Configure Terraform API access
+  # ---------------------------------------------------------
 
   - name: Configure Terraform API authentication
     hosts: pve01
@@ -196,3 +196,33 @@
         delegate_to: localhost
         when: terraform_token is changed
         no_log: true
+
+  # ---------------------------------------------------------
+  # Step 2.4: Prepare Ubuntu cloud-init templates
+  # ---------------------------------------------------------
+
+  - name: Prepare Ubuntu cloud-init template
+    hosts: pve01
+
+    tasks:
+      - name: Download Ubuntu 24.04 cloud image
+        ansible.builtin.get_url:
+          url: "{{ ubuntu_image_url }}"
+          dest: "{{ ubuntu_image_path }}"
+          mode: "0644"
+
+      # ---------------------------------------------------------
+      # Create Ubuntu base VMs
+      # ---------------------------------------------------------
+
+      - name: Create Ubuntu base VM
+        ansible.builtin.command:
+          cmd: >
+            qm create {{ template_base_id }}
+            --name {{ template_name }}
+            --memory {{ template_memory }}
+            --cores {{ template_cores }}
+            --net0 {{ template_network_model }},bridge={{ template_bridge }}
+            --scsihw {{ template_scsi_controller }}
+            --ostype {{ template_os_type }}
+          creates: "/etc/pve/nodes/{{ inventory_hostname }}/qemu-server/{{ template_base_id }}.conf"
