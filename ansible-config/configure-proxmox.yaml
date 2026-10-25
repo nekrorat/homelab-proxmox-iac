@@ -191,6 +191,7 @@
         ansible.builtin.copy:
           dest: "{{ playbook_dir }}/terraform-api-token.env"
           content: |
+            export PROXMOX_VE_ENDPOINT='https://{{ ansible_host }}:8006/'
             export PROXMOX_VE_API_TOKEN='root@pam!terraform={{ (terraform_token.stdout | from_json).value }}'
           mode: "0600"
         delegate_to: localhost
@@ -226,3 +227,48 @@
             --scsihw {{ template_scsi_controller }}
             --ostype {{ template_os_type }}
           creates: "/etc/pve/nodes/{{ inventory_hostname }}/qemu-server/{{ template_base_id }}.conf"
+
+      - name: Check Ubuntu VM disk configuration
+        ansible.builtin.command:
+          cmd: qm config {{ template_base_id }}
+        register: ubuntu_vm_config
+        changed_when: false
+
+      - name: Import Ubuntu cloud image as VM disk
+        ansible.builtin.command:
+          cmd: >
+            qm disk import {{ template_base_id }}
+            {{ ubuntu_image_path }}
+            {{ template_storage }}
+            --target-disk scsi0
+        when: "'scsi0:' not in ubuntu_vm_config.stdout"
+
+      # ---------------------------------------------------------
+      # Configure Cloud-Init and boot settings
+      # ---------------------------------------------------------
+
+      - name: Configure Ubuntu VM boot order
+        ansible.builtin.command:
+          cmd: qm set {{ template_base_id }} --boot order=scsi0
+        when: "'boot: order=scsi0' not in ubuntu_vm_config.stdout"
+
+      - name: Configure Ubuntu Cloud-Init drive
+        ansible.builtin.command:
+          cmd: qm set {{ template_base_id }} --ide2 {{ template_storage }}:cloudinit
+        when: "'ide2:' not in ubuntu_vm_config.stdout"
+
+      - name: Configure Ubuntu serial console
+        ansible.builtin.command:
+          cmd: qm set {{ template_base_id }} --serial0 socket --vga serial0
+        when: "'serial0: socket' not in ubuntu_vm_config.stdout or 'vga: serial0' not in ubuntu_vm_config.stdout"
+
+      - name: Check whether Ubuntu VM is already a template
+        ansible.builtin.command:
+          cmd: qm config {{ template_base_id }}
+        register: ubuntu_template_config
+        changed_when: false
+
+      - name: Convert Ubuntu base VM into template
+        ansible.builtin.command:
+          cmd: qm template {{ template_base_id }}
+        when: "'template: 1' not in ubuntu_template_config.stdout"
