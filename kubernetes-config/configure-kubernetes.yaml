@@ -85,6 +85,11 @@
         state: present
         update_cache: true
 
+    - name: Hold containerd package version
+      ansible.builtin.dpkg_selections:
+        name: containerd.io
+        selection: hold
+
     # Configure the containerd runtime for Kubernetes
 
     - name: Generate containerd default configuration
@@ -261,20 +266,12 @@
     - group_vars/kubernetes.yaml
 
   tasks:
-    - name: Check whether Cilium is installed
-      ansible.builtin.command:
-        cmd: helm status cilium --namespace kube-system
-      environment:
-        KUBECONFIG: /home/ubuntu/.kube/config
-      register: cilium_status
-      changed_when: false
-      failed_when: false
-
-    - name: Install Cilium
+    - name: Install or upgrade Cilium
       ansible.builtin.command:
         argv:
           - helm
-          - install
+          - upgrade
+          - --install
           - cilium
           - oci://quay.io/cilium/charts/cilium
           - --version
@@ -286,7 +283,6 @@
           - 10m
       environment:
         KUBECONFIG: /home/ubuntu/.kube/config
-      when: cilium_status.rc != 0
 
 # ---------------------------------------------------------
 # Step 4.8: Configure kubectl alias and autocompletion
@@ -338,6 +334,11 @@
   tasks:
     - name: Run temporary test Pod
       block:
+        - name: Remove any existing test Pod
+          ansible.builtin.command:
+            cmd: kubectl delete pod nginx-test --ignore-not-found=true --wait=true
+          changed_when: false
+
         - name: Create NGINX test Pod
           ansible.builtin.command:
             cmd: kubectl run nginx-test --image=nginx:stable --restart=Never
