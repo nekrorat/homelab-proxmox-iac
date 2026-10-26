@@ -39,6 +39,10 @@ resource "proxmox_virtual_environment_vm" "kubernetes" {
     enabled = false
   }
 
+  vga {
+    type = "std"
+  }
+
   initialization {
     datastore_id = var.datastore
 

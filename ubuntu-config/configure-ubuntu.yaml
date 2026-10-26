@@ -1,0 +1,59 @@
+- name: Configure Ubuntu Kubernetes nodes
+  hosts: kubernetes
+  become: true
+
+  vars_files:
+    - vars/credentials.yaml
+
+  tasks:
+    # ---------------------------------------------------------
+    # Step 3.3: Configure host resolution
+    # ---------------------------------------------------------
+
+    - name: Configure Kubernetes node host entries
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED KUBERNETES HOSTS"
+        block: |
+          {% for host in groups['kubernetes'] %}
+          {{ hostvars[host]['ansible_host'] }} {{ host }}
+          {% endfor %}
+
+    # ---------------------------------------------------------
+    # Step 3.4: Update Ubuntu packages
+    # ---------------------------------------------------------
+
+    - name: Upgrade Ubuntu packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: Check if Ubuntu requires a reboot
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot Ubuntu nodes if required
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+      when: reboot_required.stat.exists
+
+    # ---------------------------------------------------------
+    # Step 3.5: Configure time synchronization
+    # ---------------------------------------------------------
+
+    - name: Enable time synchronization
+      ansible.builtin.command:
+        cmd: timedatectl set-ntp true
+      changed_when: false
+
+    # ---------------------------------------------------------
+    # Configure local console authentication
+    # ---------------------------------------------------------
+
+    - name: Configure Ubuntu console login password
+      ansible.builtin.user:
+        name: ubuntu
+        password: "{{ ubuntu_console_password_hash }}"
+        update_password: always
+      no_log: true

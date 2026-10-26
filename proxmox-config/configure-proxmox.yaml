@@ -83,12 +83,16 @@
         ansible.builtin.apt:
           upgrade: dist
           update_cache: true
-        register: package_upgrade
 
-      - name: Reboot Proxmox hosts
+      - name: Check if Proxmox requires a reboot
+        ansible.builtin.stat:
+          path: /var/run/reboot-required
+        register: reboot_required
+
+      - name: Reboot Proxmox hosts if required
         ansible.builtin.reboot:
           reboot_timeout: 600
-        when: package_upgrade.changed
+        when: reboot_required.stat.exists
 
 
       # ---------------------------------------------------------
@@ -188,15 +192,24 @@
         no_log: true
 
       - name: Save Terraform API token locally
-        ansible.builtin.copy:
-          dest: "{{ playbook_dir }}/terraform-api-token.env"
-          content: |
-            export PROXMOX_VE_ENDPOINT='https://{{ ansible_host }}:8006/'
-            export PROXMOX_VE_API_TOKEN='root@pam!terraform={{ (terraform_token.stdout | from_json).value }}'
+        ansible.builtin.lineinfile:
+          path: "{{ playbook_dir }}/terraform-api-token.env"
+          regexp: '^export PROXMOX_VE_API_TOKEN='
+          line: "export PROXMOX_VE_API_TOKEN='root@pam!terraform={{ (terraform_token.stdout | from_json).value }}'"
+          create: true
           mode: "0600"
         delegate_to: localhost
         when: terraform_token is changed
         no_log: true
+
+      - name: Configure Terraform API endpoint locally
+        ansible.builtin.lineinfile:
+          path: "{{ playbook_dir }}/terraform-api-token.env"
+          regexp: '^export PROXMOX_VE_ENDPOINT='
+          line: "export PROXMOX_VE_ENDPOINT='https://{{ ansible_host }}:8006/'"
+          create: true
+          mode: "0600"
+        delegate_to: localhost
 
   # ---------------------------------------------------------
   # Step 2.4: Prepare Ubuntu cloud-init templates

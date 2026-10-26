@@ -1,0 +1,6 @@
+# Kubernetes version
+kubernetes_version: "1.37"
+
+# Kubernetes APT repository
+kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/"
+kubernetes_repo_key_url: "{{ kubernetes_repo_url }}Release.key"
