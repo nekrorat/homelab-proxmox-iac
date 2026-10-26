@@ -4,10 +4,14 @@ Infrastructure as Code for a small bare-metal Kubernetes homelab. This repositor
 
 > **Companion repository:** This project supports the **Kubernetes Homelab** article series, particularly the infrastructure automation and Kubernetes installation walkthroughs. The documentation here is also **standalone**: you can follow the instructions below without reading the articles.
 >
+> 
 > Previously published articles:
 > - [Part 1: Physical Network](https://www.linkedin.com/pulse/kubernetes-homelab-part-1-physical-network-rasul-abdulmagomedov-vafwe/)
 > - [Part 2: Automating Proxmox Installation with PXE/iPXE](https://www.linkedin.com/pulse/kubernetes-homelab-part-2-automating-proxmox-pxe-abdulmagomedov-fieqe/)
 >
+> The example below shows the network setup used throughout the article
+> ![k8-network](/media/k8-network.png)
+> 
 > The [Homelab Barebone repository](https://github.com/nekrorat/homelab-barebone) covers the earlier PXE/iPXE and automated bare-metal installation stage. **This repository begins with Proxmox VE already installed** on the three physical hosts. The IaC and Kubernetes articles are part of the same series, but this README does not require their publication links.
 
 ## What this repository builds
