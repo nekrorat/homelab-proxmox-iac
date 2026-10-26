@@ -16,3 +16,6 @@ https://syncbricks.com/how-to-disable-the-proxmox-subscription-nag-warning/
 ansible-playbook \                            
 -i proxmox-ansible-config/inventory/hosts.ini \
 proxmox-ansible-config/configure-proxmox.yaml
+
+How to Use Ansible to Set Up a Kubernetes Cluster from Scratch
+https://oneuptime.com/blog/post/2026-02-21-how-to-use-ansible-to-set-up-a-kubernetes-cluster-from-scratch/view

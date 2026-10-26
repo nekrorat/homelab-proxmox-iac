@@ -44,6 +44,9 @@
   hosts: kubernetes
   become: true
 
+  vars_files:
+    - group_vars/kubernetes.yaml
+
   tasks:
     # Install containerd from the Docker APT repository
 
@@ -152,3 +155,209 @@
       ansible.builtin.systemd_service:
         name: containerd
         state: restarted
+
+# ---------------------------------------------------------
+# Step 4.4: Initialize Kubernetes control plane
+# ---------------------------------------------------------
+
+- name: Initialize Kubernetes control plane
+  hosts: control_plane
+  become: true
+
+  tasks:
+    - name: Initialize control plane with kubeadm
+      ansible.builtin.command:
+        cmd: kubeadm init
+        creates: /etc/kubernetes/admin.conf
+      no_log: true
+
+    - name: Create kubectl configuration directory
+      ansible.builtin.file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0700"
+
+    - name: Configure kubectl access
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: true
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+
+
+# ---------------------------------------------------------
+# Step 4.6: Join Kubernetes worker nodes
+# ---------------------------------------------------------
+
+- name: Generate Kubernetes worker join command
+  hosts: control_plane
+  become: true
+
+  tasks:
+    - name: Generate join command
+      ansible.builtin.command:
+        cmd: kubeadm token create --print-join-command
+      register: kubeadm_join
+      changed_when: false
+      no_log: true
+
+    - name: Share join command with worker nodes
+      ansible.builtin.set_fact:
+        kubernetes_join_command: "{{ kubeadm_join.stdout }}"
+      no_log: true
+
+
+- name: Join Kubernetes worker nodes
+  hosts: workers
+  become: true
+
+  tasks:
+    - name: Join worker to Kubernetes cluster
+      ansible.builtin.command:
+        cmd: "{{ hostvars[groups['control_plane'][0]]['kubernetes_join_command'] }}"
+        creates: /etc/kubernetes/kubelet.conf
+      no_log: true
+
+
+# ---------------------------------------------------------
+# Step 4.6: Install Helm
+# ---------------------------------------------------------
+
+- name: Install Helm
+  hosts: control_plane
+  become: true
+
+  vars_files:
+    - group_vars/kubernetes.yaml
+
+  tasks:
+    - name: Install Helm
+      ansible.builtin.unarchive:
+        src: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin
+        extra_opts:
+          - --strip-components=1
+        include:
+          - linux-amd64/helm
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+        creates: /usr/local/bin/helm
+
+# ---------------------------------------------------------
+# Step 4.7: Install Cilium CNI
+# ---------------------------------------------------------
+
+- name: Install Cilium CNI
+  hosts: control_plane
+  become: false
+
+  vars_files:
+    - group_vars/kubernetes.yaml
+
+  tasks:
+    - name: Check whether Cilium is installed
+      ansible.builtin.command:
+        cmd: helm status cilium --namespace kube-system
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+      register: cilium_status
+      changed_when: false
+      failed_when: false
+
+    - name: Install Cilium
+      ansible.builtin.command:
+        argv:
+          - helm
+          - install
+          - cilium
+          - oci://quay.io/cilium/charts/cilium
+          - --version
+          - "{{ cilium_version }}"
+          - --namespace
+          - kube-system
+          - --wait
+          - --timeout
+          - 10m
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+      when: cilium_status.rc != 0
+
+# ---------------------------------------------------------
+# Step 4.8: Configure kubectl alias and autocompletion
+# ---------------------------------------------------------
+
+- name: Configure kubectl shell shortcuts
+  hosts: kubernetes
+  become: true
+
+  tasks:
+    - name: Install Bash completion
+      ansible.builtin.apt:
+        name: bash-completion
+        state: present
+
+    - name: Generate kubectl Bash completion
+      ansible.builtin.command:
+        cmd: kubectl completion bash
+      register: kubectl_completion
+      changed_when: false
+
+    - name: Install kubectl Bash completion
+      ansible.builtin.copy:
+        dest: /etc/bash_completion.d/kubectl
+        content: "{{ kubectl_completion.stdout }}\n"
+        mode: "0644"
+
+    - name: Configure kubectl alias and completion
+      ansible.builtin.blockinfile:
+        path: /home/ubuntu/.bashrc
+        marker: "# {mark} ANSIBLE MANAGED KUBECTL SHORTCUTS"
+        block: |
+          alias k=kubectl
+          complete -o default -F __start_kubectl k
+
+
+# ---------------------------------------------------------
+# Step 4.9: Validate Kubernetes Pod deployment
+# ---------------------------------------------------------
+
+- name: Test Kubernetes Pod deployment
+  hosts: control_plane
+  become: false
+  tags: smoke-test
+
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Run temporary test Pod
+      block:
+        - name: Create NGINX test Pod
+          ansible.builtin.command:
+            cmd: kubectl run nginx-test --image=nginx:stable --restart=Never
+
+        - name: Wait for test Pod to become Ready
+          ansible.builtin.command:
+            cmd: kubectl wait --for=condition=Ready pod/nginx-test --timeout=120s
+          changed_when: false
+
+        - name: Display test Pod details
+          ansible.builtin.command:
+            cmd: kubectl get pod nginx-test -o wide
+          register: test_pod
+          changed_when: false
+
+        - name: Show test results
+          ansible.builtin.debug:
+            msg: "{{ test_pod.stdout_lines }}"
+
+      always:
+        - name: Delete test Pod
+          ansible.builtin.command:
+            cmd: kubectl delete pod nginx-test --ignore-not-found=true --wait=true

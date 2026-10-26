@@ -1,5 +1,7 @@
-# Kubernetes version
+# Version
 kubernetes_version: "1.37"
+helm_version: "v3.19.0"
+cilium_version: "1.20.4"
 
 # Kubernetes APT repository
 kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/"
