@@ -285,11 +285,6 @@ ssh ubuntu@192.168.8.31 'cloud-init status --wait'
 
 ## 3. General Ubuntu configuration
 
-### Step 3.2: Review Ubuntu Configuration
-
-Check that `ubuntu-config/configure-ubuntu.yaml` contains the host resolution, update, time synchronization, and console authentication tasks. Verify that your local `ubuntu-config/vars/credentials.yaml` exists without printing its contents.
-
-
 ### Step 3.1: Configure the Kubernetes Inventory
 
 **Management machine:**
@@ -300,6 +295,11 @@ ansible kubernetes -i ubuntu-config/inventory/hosts.ini -m ansible.builtin.ping
 ```
 
 Expected: one control plane, five workers, and successful connectivity.
+
+### Step 3.2: Review Ubuntu Configuration
+
+Check that `ubuntu-config/configure-ubuntu.yaml` contains the host resolution, update, time synchronization, and console authentication tasks. Verify that your local `ubuntu-config/vars/credentials.yaml` exists without printing its contents.
+
 
 ### Step 3.3: Configure Host Resolution
 
