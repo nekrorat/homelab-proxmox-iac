@@ -39,7 +39,7 @@ For this part, we will use **Ansible** and **Terraform** to automate the remaini
 
 All configuration files are available in the [Homelab Proxmox IaC repository](https://github.com/nekrorat/homelab-proxmox-iac).
 
-The repository also contains a separate [tests.md](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md) file with commands for verifying each stage. I'll reference those checks throughout the walkthrough so we can focus on understanding the implementation instead of filling the article with troubleshooting commands.
+The repository also contains [tests.md](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md), with verification commands organized by the same step numbers used in this article. Use it whenever you want to check a specific stage or troubleshoot an installation.
 
 ## What Are We Building?
 
@@ -145,8 +145,6 @@ homelab-proxmox-iac/
 
 We will work through them in this order.
 
-**Verification:** [tests.md, Step 1.1](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#0-local-prerequisites-and-syntax-checks)
-
 ### Step 1.2: Configure the Ansible Inventory
 
 The first file we need is:
@@ -184,8 +182,6 @@ ansible proxmox \
 
 If each host responds with `pong`, Ansible can communicate with the servers.
 
-**Verification:** [tests.md, Step 1.2](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-12-configure-the-ansible-inventory)
-
 ### Step 1.3: Review the Proxmox Playbook
 
 Our main playbook is:
@@ -196,15 +192,11 @@ proxmox-config/configure-proxmox.yaml
 
 Before running the playbook, let's look at the tasks it performs on the three hosts.
 
-**Verification:** [tests.md, Step 1.3](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#0-local-prerequisites-and-syntax-checks)
-
 ### Step 1.4: Configure Proxmox Package Repositories
 
 The first tasks disable the enterprise package repositories and configure the Proxmox no-subscription repository.
 
 This lets our homelab receive Proxmox package updates without an enterprise subscription.
-
-**Verification:** [tests.md, Step 1.4](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-14-configure-proxmox-package-repositories)
 
 ### Step 1.5: Remove the Subscription Reminder (Optional)
 
@@ -212,13 +204,9 @@ The playbook also includes a cosmetic customization for removing the Proxmox sub
 
 This is specific to my homelab and is not required for Kubernetes or Proxmox clustering.
 
-**Verification:** [tests.md, Step 1.5](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-15-remove-the-subscription-reminder-optional)
-
 ### Step 1.6: Upgrade Proxmox Packages
 
 Ansible updates the package lists, upgrades installed packages, and reboots a host if the operating system indicates a reboot is required.
-
-**Verification:** [tests.md, Step 1.6](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-16-upgrade-proxmox-packages)
 
 ### Step 1.7: Configure Hostnames and Name Resolution
 
@@ -226,15 +214,11 @@ Each Proxmox host is assigned its hostname and receives entries for the other Pr
 
 This makes it possible for the hosts to resolve names such as `pve01` and `pve02` to their network addresses.
 
-**Verification:** [tests.md, Step 1.7](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-17-configure-hostnames-and-name-resolution)
-
 ### Step 1.8: Verify Proxmox Host Connectivity
 
 Before clustering the servers, the playbook checks that the Proxmox hosts can reach each other.
 
 If name resolution or connectivity fails, we should fix that before attempting to join the cluster.
-
-**Verification:** [tests.md, Step 1.8](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-18-verify-proxmox-host-connectivity)
 
 ### Step 1.9: Create the Proxmox Cluster
 
@@ -264,8 +248,6 @@ One important distinction: **the Proxmox cluster and Kubernetes cluster are not 
 
 The Proxmox cluster manages our physical virtualization infrastructure. Later, the Kubernetes cluster will manage applications running inside the Ubuntu VMs.
 
-**Verification:** [tests.md, Step 1.9](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-19-create-the-proxmox-cluster)
-
 ### Step 1.10: Create Terraform API Access
 
 Terraform needs a way to communicate with Proxmox.
@@ -290,8 +272,6 @@ The file is excluded from Git because the token is sensitive.
 
 The example uses a powerful API token for this isolated homelab. In a shared or production environment, permissions should be more restrictive.
 
-**Verification:** [tests.md, Step 1.10](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-110-create-terraform-api-access)
-
 ### Step 1.11: Prepare the Ubuntu Cloud-Init Template
 
 Next, we need a reusable Ubuntu image.
@@ -307,8 +287,6 @@ Our Ansible playbook downloads the Ubuntu 24.04 cloud image and creates a Proxmo
 Think of this template as the starting point for every Kubernetes virtual machine we will create.
 
 We prepare it once and clone it whenever we need another VM.
-
-**Verification:** [tests.md, Step 1.11](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-111-prepare-the-ubuntu-cloud-init-template)
 
 ### Step 1.12: Run the Proxmox Playbook
 
@@ -339,13 +317,10 @@ On `pve01`, we can also check our Ubuntu template:
 qm config 9000
 ```
 
-For more detailed checks, see [tests.md: Proxmox configuration](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#1-proxmox-configuration-with-ansible).
 
 At this point, we have a configured Proxmox cluster and a reusable Ubuntu template.
 
 ---
-
-**Verification:** [tests.md, Step 1.12](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#1-proxmox-configuration-with-ansible)
 
 ## Step 2: Provision Ubuntu VMs with Terraform
 
@@ -420,15 +395,11 @@ The full configuration also defines the CPU, RAM, disk, network bridge, SSH publ
 
 Every VM is cloned from the Ubuntu template we created in Step 1.
 
-**Verification:** [tests.md, Step 2.1](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-21-define-the-virtual-machines)
-
 ### Step 2.2: Test Terraform's Proxmox Connection (Optional)
 
 Before creating our six VMs, the repository provides a small Terraform test that queries the Proxmox API for the available node names.
 
 It is useful for verifying the API endpoint and token without provisioning a VM.
-
-**Verification:** [tests.md, Step 2.2](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-22-test-terraforms-proxmox-connection-optional)
 
 ### Step 2.3: Test the Ubuntu Template Clone (Optional)
 
@@ -437,8 +408,6 @@ Another small Terraform test can create a temporary Ubuntu VM from our template.
 This confirms the template is usable before we attempt to provision all six Kubernetes VMs. The test uses VM ID `100` and IP `192.168.8.37`, so make sure those values are available first.
 
 After testing, remove the temporary VM using the test directory's own Terraform state, not the state that manages our Kubernetes nodes.
-
-**Verification:** [tests.md, Step 2.3](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-23-test-the-ubuntu-template-clone-optional)
 
 ### Step 2.4: Initialize and Deploy
 
@@ -477,8 +446,6 @@ Terraform connects to Proxmox through the API and begins cloning the Ubuntu temp
 
 After provisioning finishes, all six VMs should appear across our three Proxmox hosts.
 
-**Verification:** [tests.md, Step 2.4](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-24-initialize-and-deploy)
-
 ### Step 2.5: Verify the Virtual Machines
 
 Terraform can show us the deployed VM information:
@@ -495,7 +462,6 @@ ssh ubuntu@192.168.8.31
 
 If we can log in to the control-plane VM, our Cloud-Init configuration and SSH key setup are working for that machine.
 
-The repository also includes optional Terraform tests for API connectivity and cloning a temporary VM. These are documented in [tests.md: Terraform provisioning](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#2-terraform-provisioning).
 
 **An important lesson about Terraform:** It maintains a state file that records the resources it manages. That state should be protected and backed up.
 
@@ -504,8 +470,6 @@ Also, don't use `terraform destroy` in the main VM directory unless you intentio
 With the virtual machines running, the next step is preparing their operating systems.
 
 ---
-
-**Verification:** [tests.md, Step 2.5](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-25-verify-the-virtual-machines)
 
 ## Step 3: Configure Ubuntu with Ansible
 
@@ -550,8 +514,6 @@ Notice that we created a parent group called `[kubernetes:children]`.
 
 This allows us to run tasks against all six VMs using the `kubernetes` group, while still targeting the control plane or workers separately when needed.
 
-**Verification:** [tests.md, Step 3.1](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-31-configure-the-kubernetes-inventory)
-
 ### Step 3.2: Review Ubuntu Configuration
 
 The playbook is:
@@ -562,25 +524,17 @@ ubuntu-config/configure-ubuntu.yaml
 
 The playbook handles the following Ubuntu configuration steps.
 
-**Verification:** [tests.md, Step 3.2](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#0-local-prerequisites-and-syntax-checks)
-
 ### Step 3.3: Configure Host Resolution
 
 Each VM receives entries for the other nodes in `/etc/hosts`, allowing us to use hostnames such as `worker-01` instead of remembering every IP address.
-
-**Verification:** [tests.md, Step 3.3](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-33-configure-host-resolution)
 
 ### Step 3.4: Upgrade Ubuntu Packages
 
 Ansible updates installed packages and reboots the VMs when Ubuntu indicates a reboot is required.
 
-**Verification:** [tests.md, Step 3.4](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-34-upgrade-ubuntu-packages)
-
 ### Step 3.5: Configure Time Synchronization
 
 The playbook enables NTP (Network Time Protocol), which helps keep the machines' system clocks synchronized.
-
-**Verification:** [tests.md, Step 3.5](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-35-configure-time-synchronization)
 
 ### Step 3.6: Configure Console Authentication
 
@@ -613,8 +567,6 @@ The real credentials file is ignored by Git.
 
 SSH key authentication remains available independently from the console password.
 
-**Verification:** [tests.md, Step 3.6](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-36-configure-console-authentication)
-
 ### Step 3.7: Run the Ubuntu Playbook
 
 ```
@@ -641,13 +593,10 @@ On a VM, check time synchronization:
 timedatectl status
 ```
 
-Additional checks for host resolution, updates, and console authentication are available in [tests.md: General Ubuntu configuration](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#3-general-ubuntu-configuration).
 
 Our Ubuntu machines are ready. Now we can finally install Kubernetes.
 
 ---
-
-**Verification:** [tests.md, Step 3.7](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#3-general-ubuntu-configuration)
 
 ## Step 4: Install Kubernetes with Ansible
 
@@ -683,8 +632,6 @@ Our Ansible playbook disables swap and enables IPv4 packet forwarding.
 
 The playbook applies these settings across all six VMs.
 
-**Verification:** [tests.md, Step 4.1](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-41-prepare-ubuntu-for-kubernetes)
-
 ### Step 4.2: Install the Container Runtime
 
 Kubernetes manages containers, but it does not run them directly.
@@ -701,8 +648,6 @@ One useful thing to understand here is that we do not need to install the full D
 
 Containerd provides the runtime functionality Kubernetes needs.
 
-**Verification:** [tests.md, Step 4.2](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-42-install-the-container-runtime)
-
 ### Step 4.3: Install Kubernetes Components
 
 Next, we install three Kubernetes tools:
@@ -716,8 +661,6 @@ Next, we install three Kubernetes tools:
 Ansible configures the Kubernetes APT repository, installs these packages, and holds their versions to prevent unexpected upgrades.
 
 At this stage, the software is installed, but we still haven't created the Kubernetes cluster.
-
-**Verification:** [tests.md, Step 4.3](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-43-install-kubernetes-components)
 
 ### Step 4.4: Initialize the Control Plane
 
@@ -765,8 +708,6 @@ The control plane should appear in the output.
 
 It may initially show `NotReady`, which is expected before we finish configuring Pod networking.
 
-**Verification:** [tests.md, Step 4.4](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-44-initialize-the-control-plane)
-
 ### Step 4.5: Join the Worker Nodes
 
 The control plane is running, but it still needs worker nodes.
@@ -791,8 +732,6 @@ One control plane and five workers.
 
 However, Kubernetes still needs a networking solution before the cluster is fully operational.
 
-**Verification:** [tests.md, Step 4.5](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-45-join-the-worker-nodes)
-
 ### Step 4.6: Install Helm
 
 Before installing our networking component, we will install **Helm**.
@@ -812,8 +751,6 @@ We can verify it with:
 ```
 helm version
 ```
-
-**Verification:** [tests.md, Step 4.6](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-46-install-helm)
 
 ### Step 4.7: Install Cilium Networking
 
@@ -863,8 +800,6 @@ In my homelab, Cilium allocated Pod subnets in the `10.0.x.0/24` range.
 
 The exact subnet assignments may vary between installations.
 
-**Verification:** [tests.md, Step 4.7](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-47-install-cilium-networking)
-
 ### Step 4.8: Configure kubectl Shortcuts
 
 Once the cluster is working, we can make day-to-day administration a little easier.
@@ -888,8 +823,6 @@ These settings are applied to all six Ubuntu VMs.
 One important distinction: although the alias is installed on every node, the Kubernetes administration configuration is only copied to the control-plane VM.
 
 The workers don't automatically receive the cluster administrator's credentials.
-
-**Verification:** [tests.md, Step 4.8](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-48-configure-kubectl-shortcuts)
 
 ### Step 4.9: Run a Kubernetes Smoke Test
 
@@ -935,8 +868,6 @@ If the cleanup succeeded, the command should return no Pod.
 
 This does not test every Kubernetes networking feature, but it gives us a useful first confirmation that the cluster can run a workload.
 
-**Verification:** [tests.md, Step 4.9](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#step-49-run-a-kubernetes-smoke-test)
-
 ### Run the Kubernetes Playbook
 
 We have covered what each Kubernetes stage does.
@@ -953,7 +884,6 @@ Run this after the Ubuntu configuration stage is complete.
 
 The playbook prepares the nodes, installs Kubernetes, initializes the control plane, joins the workers, installs Helm and Cilium, configures the shell shortcuts, and runs the temporary NGINX test.
 
-For detailed verification or troubleshooting of any individual stage, refer to [tests.md: Kubernetes installation and runtime](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#4-kubernetes-installation-and-runtime).
 
 ---
 
@@ -996,7 +926,6 @@ helm list -A
 
 We should see our Cilium release in the `kube-system` namespace.
 
-The repository includes a [complete final verification checklist](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md#5-final-cluster-check) if you want to inspect each component more closely.
 
 ## What Did We Accomplish?
 
@@ -1042,7 +971,6 @@ If you are working on a similar project, feel free to explore the repository, re
 
 **GitHub:** [Homelab Proxmox IaC](https://github.com/nekrorat/homelab-proxmox-iac)
 
-**Verification commands:** [tests.md](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/tests.md)
 
 Thanks for following along with my Kubernetes Homelab series. I hope this walkthrough helps make Infrastructure as Code and Kubernetes a little more approachable for anyone getting started.
 
