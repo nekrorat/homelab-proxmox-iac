@@ -38,7 +38,7 @@ These are **example homelab values**, not a generic production topology. Replace
 The same repository supports two articles, each covering two stages of the homelab:
 
 - [Part 3: Automating Proxmox and Provisioning Ubuntu VMs](article-part-3.md), covering Steps 1 and 2
-- [Part 4: Configuring Ubuntu and Installing Kubernetes with Ansible](article-part-4.md), covering Steps 3 and 4
+- (Unavailable) [Part 4: Configuring Ubuntu and Installing Kubernetes with Ansible](article-part-4.md), covering Steps 3 and 4
 
 The full README below remains a standalone installation guide. You can follow it without reading either article, and [tests.md](tests.md) covers verification across all four stages.
 
@@ -67,8 +67,6 @@ The full README below remains a standalone installation guide. You can follow it
 │   └── group_vars/kubernetes.yaml   # Kubernetes, Helm, and Cilium versions
 ├── .gitignore
 ├── README.md
-├── article.md                      # Part 3: Proxmox and Terraform
-├── article-part-4.md               # Part 4: Ubuntu and Kubernetes
 └── tests.md                         # Checks for individual setup steps
 ```
 
