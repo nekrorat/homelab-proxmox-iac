@@ -451,7 +451,7 @@ Then we used Terraform to clone that template into six virtual machines across t
 
 **We now have the infrastructure for our Kubernetes cluster, but Kubernetes is not installed yet.**
 
-In **[Part 4: Configuring Ubuntu and Installing Kubernetes with Ansible](article-part-4.md)**, we will prepare the six Ubuntu VMs, install the Kubernetes components, join the workers, configure Cilium networking, and run a smoke test.
+In **[Part 4: Configuring Ubuntu and Installing Kubernetes with Ansible](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/article-part-4.md)**, we will prepare the six Ubuntu VMs, install the Kubernetes components, join the workers, configure Cilium networking, and run a smoke test.
 
 The complete infrastructure code and the step-by-step test commands remain together in the [Homelab Proxmox IaC repository](https://github.com/nekrorat/homelab-proxmox-iac).
 
