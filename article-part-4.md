@@ -2,7 +2,7 @@
 
 In [Part 1: Physical Network](https://www.linkedin.com/pulse/kubernetes-homelab-part-1-physical-network-rasul-abdulmagomedov-vafwe/), we built the network for our homelab. In [Part 2: Automating Proxmox Installation with PXE/iPXE](https://www.linkedin.com/pulse/kubernetes-homelab-part-2-automating-proxmox-pxe-abdulmagomedov-fieqe/), we installed Proxmox VE on three physical servers.
 
-In **[Part 3: Automating Proxmox and Provisioning Ubuntu VMs](article.md)**, we configured the Proxmox cluster and used Terraform to create six Ubuntu 24.04 virtual machines.
+In **[Part 3: Automating Proxmox and Provisioning Ubuntu VMs](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/article.md)**, we configured the Proxmox cluster and used Terraform to create six Ubuntu 24.04 virtual machines.
 
 Now it's time to turn those virtual machines into a Kubernetes cluster.
 
@@ -26,7 +26,7 @@ git clone https://github.com/nekrorat/homelab-proxmox-iac.git
 cd homelab-proxmox-iac
 ```
 
-You will need Ansible, SSH access as the `ubuntu` user, and the `ansible.posix` collection. Check the repository [README](README.md) for prerequisites and settings to customize for your own network.
+You will need Ansible, SSH access as the `ubuntu` user, and the `ansible.posix` collection. Check the repository [README](https://github.com/nekrorat/homelab-proxmox-iac/blob/main/README.md) for prerequisites and settings to customize for your own network.
 
 Let's finish our Kubernetes homelab.
 
