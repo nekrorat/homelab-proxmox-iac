@@ -62,19 +62,19 @@ Run the local prerequisite and syntax checks in [Section 0](#0-local-prerequisit
 
 ### Step 1.2: Configure the Ansible Inventory
 
-The first SSH test also verifies the Proxmox hosts listed in the Ansible inventory.
-
+Before the first connection test, complete the [first-time SSH setup in the README](README.md#set-up-ssh-access-first-time-installs-or-after-pxeipxe-reinstallation). A fresh PXE/iPXE install does not automatically authorize your management PC's SSH key.
 
 **Management machine:**
 
 ```bash
+ssh -o BatchMode=yes root@192.168.8.21 hostname
+ssh -o BatchMode=yes root@192.168.8.22 hostname
+ssh -o BatchMode=yes root@192.168.8.23 hostname
+
 ansible proxmox -i proxmox-config/inventory/hosts.ini -m ansible.builtin.ping
-ssh root@192.168.8.21
-ssh root@192.168.8.22
-ssh root@192.168.8.23
 ```
 
-Expected: `pong` for all three hosts and SSH access to the intended Proxmox hosts. Exit each SSH shell before the next command.
+Expected: the correct hostname from each SSH command with no **remote root password** prompt, followed by `pong` from Ansible for all three Proxmox hosts. `Permission denied (publickey,password)` usually means the management PC's public key has not been authorized or the wrong SSH identity is being used.
 
 ### Step 1.3: Review the Proxmox Playbook
 

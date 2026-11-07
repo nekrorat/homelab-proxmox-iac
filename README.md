@@ -107,7 +107,45 @@ Do not apply the default IP addresses or VM IDs to an environment where they are
 4. Creates an API token for the Terraform provider and saves local environment-variable exports.
 5. Downloads an Ubuntu 24.04 Cloud-Init image and creates template VM **9000** on `pve01`.
 
-First, test Ansible connectivity:
+### Set up SSH access (first-time installs or after PXE/iPXE reinstallation)
+
+Ansible connects over SSH as `root` (see `proxmox-config/inventory/hosts.ini`). A fresh Proxmox installation has a root password, but **does not automatically trust the SSH key on your management PC**. You must authorize your public key before Ansible's first connectivity test.
+
+On your **management PC**, check whether the default key exists:
+
+```bash
+ls -l ~/.ssh/id_ed25519.pub
+```
+
+If it does not exist, generate a keypair. **Do not overwrite an existing keypair.** If you already use a different key, use its public-key path in the commands below and configure SSH/Ansible to use the matching private key.
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+```
+
+Copy your **public key** to each freshly installed Proxmox host (replace IPs if you customized your inventory):
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.8.21
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.8.22
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.8.23
+```
+
+Each host prompts for its **Proxmox root password** during the initial key installation. The public key is added to the remote root user's authorized keys; your private key stays on the management PC. These commands assume password-based root SSH access is permitted, as in this example lab.
+
+Verify key-based access without falling back to a remote password:
+
+```bash
+ssh -o BatchMode=yes root@192.168.8.21 hostname
+ssh -o BatchMode=yes root@192.168.8.22 hostname
+ssh -o BatchMode=yes root@192.168.8.23 hostname
+```
+
+Each command should print the remote hostname without asking for the **Proxmox root password**. If your private key is passphrase-protected, load it into your SSH agent before running the checks or Ansible.
+
+**After reimaging:** An iPXE reinstall erases the servers' previous authorized keys, so repeat `ssh-copy-id`. If SSH reports a changed host key, verify the new fingerprint through the Proxmox console before removing the old `known_hosts` entry with `ssh-keygen -R <host-ip>`. Do not blindly accept an unexpected key change.
+
+### Test Ansible connectivity
 
 ```bash
 ansible proxmox -i proxmox-config/inventory/hosts.ini -m ansible.builtin.ping
