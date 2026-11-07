@@ -78,10 +78,6 @@ You need:
 
 - Three reachable **Proxmox VE 9** installations, already installed on physical hosts. See the [previous repository](https://github.com/nekrorat/homelab-barebone) for the PXE installation stage.
 - A management machine with **Git, OpenSSH, Ansible, Terraform, and OpenSSL**. A Linux shell or WSL environment is suitable.
-- An Ansible installation that supports the playbooks' fully qualified modules. Install the `ansible.posix` collection with `ansible-galaxy collection install ansible.posix` if it is missing.
-- Working SSH access from the management machine to `root` on all Proxmox hosts. The cluster-join tasks also use root SSH between Proxmox nodes and expect joining hosts to have `/root/.ssh/id_rsa.pub`.
-- An SSH keypair on the management machine, by default `~/.ssh/id_ed25519` and `~/.ssh/id_ed25519.pub`. Terraform injects the public key into the Ubuntu VMs.
-- Reachable Proxmox host addresses, an available `vmbr0` bridge, a datastore such as `local-lvm`, and network access to download Ubuntu images and packages.
 - Sufficient physical RAM and disk capacity for the six VMs, plus a reachable management network.
 
 Clone this repository:
