@@ -1,10 +1,14 @@
+# Step 1.3: Configure and Run the Proxmox Playbook
+# One ansible-playbook run executes all the task groups below, in order.
+# Step numbers in group comments match README.md and tests.md.
+
   - name: Configure Proxmox hosts
     hosts: proxmox
 
     tasks:
 
       # ---------------------------------------------------------
-      # Step 1.4: Configure Proxmox repositories
+      # Step 1.3.1: Configure Proxmox Package Repositories
       # ---------------------------------------------------------
 
       - name: Disable Proxmox enterprise repository
@@ -36,7 +40,7 @@
 
 
       # ---------------------------------------------------------
-      # Step 1.5: Remove Proxmox subscription warning
+      # Step 1.3.2: Customize the Subscription Reminder
       # ---------------------------------------------------------
 
       - name: Install subscription nag removal script
@@ -76,7 +80,7 @@
 
 
       # ---------------------------------------------------------
-      # Step 1.6: Upgrade and reboot Proxmox hosts
+      # Step 1.3.3: Upgrade Packages and Reboot
       # ---------------------------------------------------------
 
       - name: Upgrade installed packages
@@ -96,7 +100,7 @@
 
 
       # ---------------------------------------------------------
-      # Step 1.7: Configure common Proxmox host settings
+      # Step 1.3.4: Configure Hostnames and Name Resolution
       # ---------------------------------------------------------
 
       - name: Set Proxmox hostname
@@ -110,8 +114,9 @@
             {% for host in groups['proxmox'] %}
             {{ hostvars[host]['ansible_host'] }} {{ host }}
             {% endfor %}
+
       # ---------------------------------------------------------
-      # Step 1.8: Final connectivity check
+      # Step 1.3.5: Check Connectivity Between Hosts
       # ---------------------------------------------------------
 
       - name: Check Proxmox host connectivity
@@ -121,7 +126,7 @@
         changed_when: false
 
       # ---------------------------------------------------------
-      # Step 1.9: Create Proxmox cluster
+      # Step 1.3.6: Create the Proxmox Cluster
       # ---------------------------------------------------------
 
       - name: Initialize Proxmox cluster
@@ -168,7 +173,8 @@
         throttle: 1
 
   # ---------------------------------------------------------
-  # Step 1.10: Configure Terraform API access
+  # Step 1.3.7: Configure Terraform API Access
+  # Runs on pve01; writes the credentials file on the management PC.
   # ---------------------------------------------------------
 
   - name: Configure Terraform API authentication
@@ -212,21 +218,22 @@
         delegate_to: localhost
 
   # ---------------------------------------------------------
-  # Step 2.4: Prepare Ubuntu cloud-init templates
+  # Step 1.3.8: Download the Ubuntu Cloud Image
+  # Runs on pve01; Terraform clones this template in Step 2.
   # ---------------------------------------------------------
 
   - name: Prepare Ubuntu cloud-init template
     hosts: pve01
 
     tasks:
-      - name: Download Ubuntu 24.04 cloud image
+      - name: Download Ubuntu cloud image
         ansible.builtin.get_url:
           url: "{{ ubuntu_image_url }}"
           dest: "{{ ubuntu_image_path }}"
           mode: "0644"
 
       # ---------------------------------------------------------
-      # Create Ubuntu base VMs
+      # Step 1.3.9: Create the Ubuntu Base VM and Import Its Disk
       # ---------------------------------------------------------
 
       - name: Create Ubuntu base VM
@@ -257,7 +264,7 @@
         when: "'scsi0:' not in ubuntu_vm_config.stdout"
 
       # ---------------------------------------------------------
-      # Configure Cloud-Init and boot settings
+      # Step 1.3.10: Configure Cloud-Init and Convert the VM into a Template
       # ---------------------------------------------------------
 
       - name: Configure Ubuntu VM boot order

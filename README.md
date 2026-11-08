@@ -14,6 +14,8 @@ Infrastructure as Code for a small bare-metal Kubernetes homelab. This repositor
 > 
 > The [Homelab Barebone repository](https://github.com/nekrorat/homelab-barebone) covers the earlier PXE/iPXE and automated bare-metal installation stage. **This repository begins with Proxmox VE already installed** on the three physical hosts. The IaC and Kubernetes articles are part of the same series, but this README does not require their publication links.
 
+**Testing and verification:** See [tests.md](tests.md) for prerequisite checks, verification after each phase, optional Terraform tests, and Kubernetes smoke tests.
+
 ## What this repository builds
 
 The example environment uses three physical mini PCs, each running Proxmox VE 9, and six Ubuntu 24.04 VMs:
@@ -32,15 +34,6 @@ The lab LAN is `192.168.8.0/24` with gateway `192.168.8.1`. The default VM shape
 Kubernetes uses a single control plane and five workers. The example repository currently selects Kubernetes **1.37**, Helm **v3.19.0**, and Cilium **1.20.4**. Version strings are defined in `kubernetes-config/group_vars/kubernetes.yaml`.
 
 These are **example homelab values**, not a generic production topology. Replace addresses, storage names, VM sizes, and other environment-specific settings before applying the automation elsewhere.
-
-## Article walkthroughs
-
-The same repository supports two articles, each covering two stages of the homelab:
-
-- [Part 3: Automating Proxmox and Provisioning Ubuntu VMs](article-part-3.md), covering Steps 1 and 2
-- (Unavailable) [Part 4: Configuring Ubuntu and Installing Kubernetes with Ansible](article-part-4.md), covering Steps 3 and 4
-
-The full README below remains a standalone installation guide. You can follow it without reading either article, and [tests.md](tests.md) covers verification across all four stages.
 
 ## Repository layout
 
@@ -99,15 +92,24 @@ Do not apply the default IP addresses or VM IDs to an environment where they are
 
 ## Phase 1: Configure Proxmox with Ansible
 
-`proxmox-config/configure-proxmox.yaml` performs the initial configuration:
+`proxmox-config/configure-proxmox.yaml` runs the following tasks in order.
 
-1. Configures Proxmox package repositories, updates packages, and handles required reboots.
-2. Applies the included optional subscription-banner customization.
-3. Configures host resolution and establishes the Proxmox cluster named `homelab`.
-4. Creates an API token for the Terraform provider and saves local environment-variable exports.
-5. Downloads an Ubuntu 24.04 Cloud-Init image and creates template VM **9000** on `pve01`.
+| Step | Task group | Verification |
+| --- | --- | --- |
+| 1.3.1 | Configure Proxmox Package Repositories | [Check](tests.md#step-131-verify-proxmox-package-repositories) |
+| 1.3.2 | Customize the Subscription Reminder | — |
+| 1.3.3 | Upgrade Packages and Reboot | — |
+| 1.3.4 | Configure Hostnames and Name Resolution | — |
+| 1.3.5 | Check Connectivity Between Hosts | — |
+| 1.3.6 | Create the Proxmox Cluster | [Check](tests.md#step-136-verify-proxmox-cluster-membership) |
+| 1.3.7 | Configure Terraform API Access | [Check](tests.md#step-137-verify-terraform-api-access) |
+| 1.3.8 | Download the Ubuntu Cloud Image | — |
+| 1.3.9 | Create the Ubuntu Base VM and Import Its Disk | — |
+| 1.3.10 | Configure Cloud-Init and Convert the VM into a Template | — |
 
-### Set up SSH access (first-time installs or after PXE/iPXE reinstallation)
+### First-time SSH setup
+
+Complete this setup for first-time installs or after PXE/iPXE reinstallation.
 
 Ansible connects over SSH as `root` (see `proxmox-config/inventory/hosts.ini`). A fresh Proxmox installation has a root password, but **does not automatically trust the SSH key on your management PC**. You must authorize your public key before Ansible's first connectivity test.
 
@@ -133,25 +135,11 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.8.23
 
 Each host prompts for its **Proxmox root password** during the initial key installation. The public key is added to the remote root user's authorized keys; your private key stays on the management PC. These commands assume password-based root SSH access is permitted, as in this example lab.
 
-Verify key-based access without falling back to a remote password:
+If your private key is passphrase-protected, load it into your SSH agent before running Ansible. Complete the [SSH and Ansible connectivity checks](tests.md#step-12-verify-ssh-and-ansible-connectivity) before continuing.
 
-```bash
-ssh -o BatchMode=yes root@192.168.8.21 hostname
-ssh -o BatchMode=yes root@192.168.8.22 hostname
-ssh -o BatchMode=yes root@192.168.8.23 hostname
-```
+### Run Proxmox configuration
 
-Each command should print the remote hostname without asking for the **Proxmox root password**. If your private key is passphrase-protected, load it into your SSH agent before running the checks or Ansible.
-
-**After reimaging:** An iPXE reinstall erases the servers' previous authorized keys, so repeat `ssh-copy-id`. If SSH reports a changed host key, verify the new fingerprint through the Proxmox console before removing the old `known_hosts` entry with `ssh-keygen -R <host-ip>`. Do not blindly accept an unexpected key change.
-
-### Test Ansible connectivity
-
-```bash
-ansible proxmox -i proxmox-config/inventory/hosts.ini -m ansible.builtin.ping
-```
-
-Then run the playbook:
+Run all Steps 1.3.1–1.3.10 with the following command. Use the numbered group comments in the playbook to follow each stage:
 
 ```bash
 ansible-playbook \
@@ -159,7 +147,7 @@ ansible-playbook \
   proxmox-config/configure-proxmox.yaml
 ```
 
-On the first successful token creation, the playbook writes `proxmox-config/terraform-api-token.env` locally. **This file is excluded from Git.** Load it into your current shell before using Terraform:
+In Step 1.3.7, on the first successful token creation, the playbook writes `proxmox-config/terraform-api-token.env` locally. **This file is excluded from Git.** Load it into your current shell before using Terraform:
 
 ```bash
 source proxmox-config/terraform-api-token.env
@@ -169,33 +157,41 @@ The file exports `PROXMOX_VE_ENDPOINT` and `PROXMOX_VE_API_TOKEN`. Source it aga
 
 > **Security note:** The example creates a powerful Proxmox API token and the Terraform provider uses `insecure = true` for a lab with self-signed TLS certificates. For other environments, use appropriately scoped credentials and a trusted certificate chain. The included subscription customization modifies Proxmox-installed UI files and is a lab convenience, not a requirement for cluster operation.
 
+Verify the Proxmox results using the [command-line checks](tests.md#1-phase-1-proxmox-verification) or the optional dashboard walkthrough below. Check the local API credential file on the management machine before continuing with Terraform.
+
+### Check the Proxmox dashboard (optional)
+
+From the **Management PC**, open [the Proxmox dashboard](https://192.168.8.21:8006/) and log in as `root` using the **Linux PAM** realm and that host's root password. After clustering, any of the three hosts' web interfaces can manage the cluster. See the [Proxmox web interface guide](https://pve.proxmox.com/pve-docs/chapter-pve-gui.html) for navigation details.
+
+Use these views to inspect the results:
+
+| View | Expected result in this lab |
+| --- | --- |
+| Datacenter → Summary / Cluster | `homelab` contains `pve01`, `pve02`, and `pve03`, all online. |
+| Each node → Updates → Repositories | The Proxmox no-subscription repository is enabled; the enterprise repositories removed by the playbook are absent. |
+| Each node → Updates | Review remaining package updates after the upgrade. |
+| Datacenter → Permissions → API Tokens | The `terraform` token belongs to `root@pam`. Its existing secret cannot be retrieved here. |
+| `pve01` → template `9000` → Hardware / Options | The Ubuntu template has its `scsi0` disk, Cloud-Init drive, serial console, and boot order configured. |
+
+The dashboard shows Proxmox state. The generated token file lives on the Management PC, and SSH access still needs a connection test. The node's **Shell** also lets you run host-side checks such as `pvecm status` from the browser.
+
 ## Phase 2: Provision Ubuntu VMs with Terraform
 
 Terraform uses the **bpg/proxmox** provider to clone the template and create the six VMs listed above.
 
 Review `vm-provision/variables.tf` before running. In particular, check template ID/location, VM IDs, IPs, `local-lvm`, `vmbr0`, disk sizes, and the path to your SSH public key.
 
-Make sure the API environment variables from Phase 1 are loaded. Then run:
+Make sure the API environment variables from Phase 1 are loaded. Initialize Terraform, complete the [format and validation checks](tests.md#step-24-check-terraform-configuration-and-plan), then review the plan before applying:
 
 ```bash
 terraform -chdir=vm-provision init
-terraform -chdir=vm-provision fmt -check
-terraform -chdir=vm-provision validate
 terraform -chdir=vm-provision plan
 terraform -chdir=vm-provision apply
 ```
 
-Terraform produces the VM inventory through `outputs.tf`. You can display it using:
+After Terraform finishes, you can optionally inspect the VMs in the dashboard's **Server View**. Confirm VMs `101`–`106` appear under the hosts listed in the topology table and are running. Select each VM's **Hardware** and **Cloud-Init** views to review its resources and initialization settings. Inspect clone/start operations in **Task History**; open failed tasks for details. A running status alone does not confirm that Ubuntu finished Cloud-Init or accepts SSH.
 
-```bash
-terraform -chdir=vm-provision output kubernetes_vms
-```
-
-Wait for Cloud-Init to finish on the Ubuntu VMs before continuing. For example:
-
-```bash
-ssh ubuntu@192.168.8.31 'cloud-init status --wait'
-```
+Before continuing, complete the [VM verification checks](tests.md#step-25-verify-the-virtual-machines), including waiting for Cloud-Init to finish on all six VMs. Terraform exposes the VM inventory through `outputs.tf`; the verification guide includes the command to display it.
 
 The Terraform state is local to the Terraform working directory and is ignored by Git. **Keep it backed up securely.** Do not run `terraform destroy` against `vm-provision/` unless you intend to remove the six Kubernetes VMs.
 
@@ -226,11 +222,7 @@ The Proxmox console authenticates with the **Ubuntu account**, not your Proxmox 
 
 ### Run Ubuntu configuration
 
-Verify SSH access to the VMs:
-
-```bash
-ansible kubernetes -i ubuntu-config/inventory/hosts.ini -m ansible.builtin.ping
-```
+Complete the [Ubuntu inventory and connectivity checks](tests.md#step-31-verify-inventory-and-ansible-connectivity) before running the playbook.
 
 Run the playbook:
 
@@ -241,6 +233,8 @@ ansible-playbook \
 ```
 
 The file `ubuntu-config/vars/credentials.yaml` is **required** by this playbook. Other readers can use the example file to generate their own secret before execution.
+
+Before continuing, complete the [Ubuntu verification checks](tests.md#3-phase-3-ubuntu-verification).
 
 ## Phase 4: Install Kubernetes with Ansible
 
@@ -266,27 +260,11 @@ ansible-playbook \
 
 The playbook expects the six VMs to exist and Phase 3 to have completed. It initializes Kubernetes without explicitly setting an API advertise address, CRI socket, or Pod CIDR, relying on kubeadm's detection. Cilium is installed using its cluster-pool IPAM, which assigns Pod subnets independently of `Node.spec.podCIDR`.
 
-The smoke test has an Ansible tag, so you can rerun **only** that test:
-
-```bash
-ansible-playbook \
-  -i ubuntu-config/inventory/hosts.ini \
-  kubernetes-config/configure-kubernetes.yaml \
-  --tags smoke-test
-```
+The installation automatically runs a temporary NGINX smoke test. For instructions to rerun it independently, see the [smoke-test checks and cleanup](tests.md#step-49-run-a-kubernetes-smoke-test).
 
 > **Rerun caution:** Initialization and worker joining have file-based guards, but other setup tasks are not equivalent to a safe production upgrade workflow. A full rerun can generate a fresh join token, and runtime or networking changes may disrupt running workloads. Review the playbook and intended versions before applying it to an established cluster.
 
-### Confirm the resulting cluster
-
-On the control-plane VM:
-
-```bash
-ssh ubuntu@192.168.8.31
-kubectl get nodes -o wide
-kubectl get pods -A
-helm list -A
-```
+Complete the [final cluster checks](tests.md#5-final-cluster-check) after installation.
 
 When ready, you should see one control-plane node, five workers, and Cilium running on the cluster. The `kubectl` configuration is intentionally installed only for the `ubuntu` user on the control-plane VM. The `k` alias is configured on all Ubuntu VMs, but workers do not automatically have cluster-admin kubeconfig credentials.
 

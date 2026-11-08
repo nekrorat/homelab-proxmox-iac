@@ -1,6 +1,6 @@
 # Homelab verification commands
 
-This guide collects commands for checking the milestones implemented by this repository. Use it **independently from the articles** whenever you need to verify one step or troubleshoot an existing installation.
+This guide collects commands for checking the milestones implemented by this repository. Use it whenever you need to verify one step or troubleshoot an existing installation.
 
 For full setup instructions, see [README.md](README.md).
 
@@ -11,7 +11,19 @@ For full setup instructions, see [README.md](README.md).
 > - Commands labeled **control plane** run as the `ubuntu` user on `control-plane-01`, unless indicated otherwise.
 > - Commands labeled **worker** run on the relevant Ubuntu worker VM.
 >
-> Unless noted as **mutating**, checks below only inspect state. Replace example IPs and hostnames if you changed the inventories.
+> Runtime queries inspect state unless labeled **Mutating test**. Local syntax and Terraform checks can write caches, downloaded providers, or state files as noted below. Replace example IPs and hostnames if you changed the inventories.
+
+## Contents
+
+- [Local prerequisites and syntax checks](#0-local-prerequisites-and-syntax-checks)
+- [Phase 1: Proxmox verification](#1-phase-1-proxmox-verification)
+- [Phase 2: Terraform and VM verification](#2-phase-2-terraform-and-vm-verification)
+- [Phase 3: Ubuntu verification](#3-phase-3-ubuntu-verification)
+- [Phase 4: Kubernetes verification](#4-phase-4-kubernetes-verification)
+- [Final cluster check](#5-final-cluster-check)
+- [Safe debugging reminders](#6-safe-debugging-reminders)
+
+Phase numbers match the README installation workflow. Step numbers identify the configuration stages; gaps indicate steps without a separate check in this guide.
 
 ## 0. Local prerequisites and syntax checks
 
@@ -53,16 +65,15 @@ ansible-playbook --syntax-check \
 
 **Note:** The Ubuntu syntax check can require the local `ubuntu-config/vars/credentials.yaml` referenced by the playbook. Copy and populate the credentials example as explained in the README.
 
-## 1. Proxmox configuration with Ansible
+## 1. Phase 1: Proxmox verification
 
-### Step 1.1: Prepare the Repository
+### Step 1.2: Verify SSH and Ansible Connectivity
 
-Run the local prerequisite and syntax checks in [Section 0](#0-local-prerequisites-and-syntax-checks) before connecting to the Proxmox hosts.
+Run the [local prerequisite and syntax checks](#0-local-prerequisites-and-syntax-checks) before connecting.
 
+If your private key is passphrase-protected, load it into your SSH agent before testing.
 
-### Step 1.2: Configure the Ansible Inventory
-
-Before the first connection test, complete the [first-time SSH setup in the README](README.md#set-up-ssh-access-first-time-installs-or-after-pxeipxe-reinstallation). A fresh PXE/iPXE install does not automatically authorize your management PC's SSH key.
+Before the first connection test, complete the [first-time SSH setup in the README](README.md#first-time-ssh-setup). A fresh PXE/iPXE install does not automatically authorize your management PC's SSH key.
 
 **Management machine:**
 
@@ -76,11 +87,11 @@ ansible proxmox -i proxmox-config/inventory/hosts.ini -m ansible.builtin.ping
 
 Expected: the correct hostname from each SSH command with no **remote root password** prompt, followed by `pong` from Ansible for all three Proxmox hosts. `Permission denied (publickey,password)` usually means the management PC's public key has not been authorized or the wrong SSH identity is being used.
 
-### Step 1.3: Review the Proxmox Playbook
+### Step 1.3: Verify the Proxmox Playbook Results
 
-Check the Proxmox playbook syntax using the command in [Section 0](#0-local-prerequisites-and-syntax-checks).
+Run these checks after `proxmox-config/configure-proxmox.yaml` completes. The subsection numbers match the task groups in the README and the numbered comments in the playbook. This guide retains checks for Steps 1.3.1, 1.3.6, and 1.3.7; the full execution sequence is listed in the [README](README.md#phase-1-configure-proxmox-with-ansible).
 
-### Step 1.4: Configure Proxmox Package Repositories
+#### Step 1.3.1: Verify Proxmox Package Repositories
 
 **Proxmox host:**
 
@@ -91,55 +102,7 @@ apt-cache policy pve-manager
 
 Expected: the no-subscription repository is configured. Enterprise repository files should not be enabled by the Ansible playbook.
 
-### Step 1.5: Remove the Subscription Reminder (Optional)
-
-**Proxmox host:**
-
-```bash
-ls -l /usr/local/bin/remove-proxmox-subscription-nag
-cat /etc/apt/apt.conf.d/no-nag-script
-```
-
-Expected: both files exist if you ran the complete Proxmox playbook. The customization is optional and not required for Kubernetes.
-
-### Step 1.6: Upgrade Proxmox Packages
-
-**Proxmox host:**
-
-```bash
-test ! -e /var/run/reboot-required && echo 'No reboot required'
-apt list --upgradable
-```
-
-Expected: after any required reboot, the reboot-required flag is absent. New package updates may appear later.
-
-### Step 1.7: Configure Hostnames and Name Resolution
-
-**Proxmox host:**
-
-```bash
-hostname
-getent hosts pve01 pve02 pve03
-```
-
-Expected: the correct hostname and all three hosts resolving to their configured IP addresses.
-
-### Step 1.8: Verify Proxmox Host Connectivity
-
-**Proxmox host:**
-
-```bash
-hostname
-getent hosts pve01 pve02 pve03
-ping -c 1 pve01
-ping -c 1 pve02
-ping -c 1 pve03
-systemctl is-active pveproxy
-```
-
-Expected: correct host identity, resolution to `192.168.8.21`–`.23`, successful ping replies, and `active` for `pveproxy`. The exact addresses depend on your inventory.
-
-### Step 1.9: Create the Proxmox Cluster
+#### Step 1.3.6: Verify Proxmox Cluster Membership
 
 **Proxmox host:**
 
@@ -151,7 +114,7 @@ test -f /etc/pve/corosync.conf && echo 'Cluster configuration present'
 
 Expected: cluster name `homelab`, three nodes, and quorate cluster status once all nodes have joined.
 
-### Step 1.10: Create Terraform API Access
+#### Step 1.3.7: Verify Terraform API Access
 
 **Management machine:**
 
@@ -172,30 +135,13 @@ pveum user token list root@pam
 
 Expected: token named `terraform`. Listing a token does **not** reveal its secret. If the local token file is missing, retrieve credentials from your secure backup or deliberately rotate the token before using Terraform.
 
-### Step 1.11: Prepare the Ubuntu Cloud-Init Template
+## 2. Phase 2: Terraform and VM verification
 
-**Proxmox host `pve01`:**
-
-```bash
-qm list
-qm config 9000
-qm config 9000 | grep -E 'template:|scsi0:|ide2:|boot:|serial0:'
-```
-
-Expected: VM `9000` is a template, with the imported Ubuntu disk and Cloud-Init drive present.
-
-### Step 1.12: Run the Proxmox Playbook
-
-After running `proxmox-config/configure-proxmox.yaml`, verify the repository, host connectivity, cluster status, API token, and template using Steps 1.4–1.11 above.
-
-## 2. Terraform provisioning
-
-### Step 2.1: Define the Virtual Machines
+### Step 2.1: Review VM Configuration
 
 Review `vm-provision/variables.tf` for all six VM names, VM IDs, host placement, IPs, memory, storage, and the SSH public-key path. Check for conflicts before deploying. This is a configuration review rather than a runtime test.
 
-
-All commands in this section run on the **management machine**. Load your Proxmox API token environment before using the provider:
+Unless labeled otherwise, commands in this section run on the **management machine**. Load your Proxmox API token environment before using the provider:
 
 ```bash
 source proxmox-config/terraform-api-token.env
@@ -203,7 +149,7 @@ source proxmox-config/terraform-api-token.env
 
 ### Step 2.2: Test Terraform's Proxmox Connection (Optional)
 
-This repository includes a separate test directory that reads the available Proxmox node names:
+This repository includes a separate test directory that reads the available Proxmox node names. `init` downloads providers and writes local initialization files; `apply` records the queried data in this test directory's state without creating infrastructure:
 
 ```bash
 terraform -chdir=vm-provision/tests/connection init
@@ -242,7 +188,9 @@ terraform -chdir=vm-provision/tests/vm-clone destroy
 
 Do **not** run the destroy command in `vm-provision/`, which manages your real Kubernetes VMs.
 
-### Step 2.4: Initialize and Deploy
+### Step 2.4: Check Terraform Configuration and Plan
+
+`init` downloads providers and writes local initialization files. The remaining commands check formatting, configuration, and proposed changes. Use the README for the deployment command.
 
 ```bash
 terraform -chdir=vm-provision init
@@ -262,14 +210,14 @@ terraform -chdir=vm-provision output kubernetes_vms
 
 Expected: six instances under `proxmox_virtual_environment_vm.kubernetes` and output containing the expected VM IDs, Proxmox nodes, and IPs.
 
-From a Proxmox host, check the corresponding VMs:
+**Proxmox host `pve01`:** Check its VMs; VM 101 belongs to this host in the example topology. Run `qm list` on the other Proxmox hosts to inspect their VMs:
 
 ```bash
 qm list
 qm config 101
 ```
 
-Check access to each Ubuntu VM from the management machine:
+**Management machine:** Check access to each Ubuntu VM:
 
 ```bash
 for ip in 192.168.8.31 192.168.8.32 192.168.8.33 192.168.8.34 192.168.8.35 192.168.8.36; do
@@ -277,15 +225,17 @@ for ip in 192.168.8.31 192.168.8.32 192.168.8.33 192.168.8.34 192.168.8.35 192.1
 done
 ```
 
-Expected: all six hostnames. If Cloud-Init is still running, wait on the relevant VM:
+Expected: all six hostnames. Before proceeding to Ubuntu configuration, wait for Cloud-Init on all six VMs:
 
 ```bash
-ssh ubuntu@192.168.8.31 'cloud-init status --wait'
+for ip in 192.168.8.31 192.168.8.32 192.168.8.33 192.168.8.34 192.168.8.35 192.168.8.36; do
+  ssh "ubuntu@$ip" 'cloud-init status --wait'
+done
 ```
 
-## 3. General Ubuntu configuration
+## 3. Phase 3: Ubuntu verification
 
-### Step 3.1: Configure the Kubernetes Inventory
+### Step 3.1: Verify Inventory and Ansible Connectivity
 
 **Management machine:**
 
@@ -296,20 +246,11 @@ ansible kubernetes -i ubuntu-config/inventory/hosts.ini -m ansible.builtin.ping
 
 Expected: one control plane, five workers, and successful connectivity.
 
-### Step 3.2: Review Ubuntu Configuration
+### Step 3.2: Review Ubuntu Configuration and Credentials
 
 Check that `ubuntu-config/configure-ubuntu.yaml` contains the host resolution, update, time synchronization, and console authentication tasks. Verify that your local `ubuntu-config/vars/credentials.yaml` exists without printing its contents.
 
-
-### Step 3.3: Configure Host Resolution
-
-**Management machine:**
-
-```bash
-ansible kubernetes -i ubuntu-config/inventory/hosts.ini -m ansible.builtin.ping
-```
-
-Expected: `pong` from all six VMs.
+### Step 3.3: Verify Ubuntu Host Resolution
 
 **Any Ubuntu VM:**
 
@@ -321,7 +262,7 @@ cat /etc/hosts
 
 Expected: six entries matching the Ubuntu inventory.
 
-### Step 3.4: Upgrade Ubuntu Packages
+### Step 3.4: Verify Ubuntu Update and Reboot Status
 
 **Ubuntu VM:**
 
@@ -332,7 +273,7 @@ test ! -e /var/run/reboot-required && echo 'No reboot required'
 
 Expected: the second line prints its success message after any required reboot. The upgradeable-package list may legitimately contain packages released after the playbook last ran.
 
-### Step 3.5: Configure Time Synchronization
+### Step 3.5: Verify Time Synchronization
 
 **Ubuntu VM:**
 
@@ -343,21 +284,17 @@ timedatectl show -p NTP -p NTPSynchronized
 
 Expected: NTP enabled. `NTPSynchronized=yes` may take time after first boot if a time source is not yet reachable.
 
-### Step 3.6: Configure Console Authentication
+### Step 3.6: Verify Console Authentication
 
 The playbook configures a local password for `ubuntu` to use with the Proxmox noVNC console. Open a VM's **Console** in the Proxmox web UI and log in as `ubuntu` using the password you configured in `ubuntu-config/vars/credentials.yaml`.
 
 Do not print password hashes in shared command output, screenshots, or issue reports.
 
-### Step 3.7: Run the Ubuntu Playbook
-
-After running `ubuntu-config/configure-ubuntu.yaml`, verify Ansible connectivity, host resolution, reboot status, NTP, and console login using Steps 3.1–3.6 above.
-
-## 4. Kubernetes installation and runtime
+## 4. Phase 4: Kubernetes verification
 
 Unless noted otherwise, Kubernetes node checks run on **each Ubuntu VM** and cluster checks run as `ubuntu` on **control-plane-01**.
 
-### Step 4.1: Prepare Ubuntu for Kubernetes
+### Step 4.1: Verify Kubernetes Host Prerequisites
 
 **Each Ubuntu VM:**
 
@@ -370,7 +307,7 @@ grep -E '^[^#].*[[:space:]]swap[[:space:]]' /etc/fstab || true
 
 Expected: no active swap devices, IPv4 forwarding is `1`, and no uncommented swap mount entries in `/etc/fstab`.
 
-### Step 4.2: Install the Container Runtime
+### Step 4.2: Verify the Container Runtime
 
 **Each Ubuntu VM:**
 
@@ -390,7 +327,7 @@ Check the installed Debian package:
 dpkg-query -W containerd.io
 ```
 
-### Step 4.3: Install Kubernetes Components
+### Step 4.3: Verify Kubernetes Components
 
 **Each Ubuntu VM:**
 
@@ -406,7 +343,7 @@ systemctl is-active kubelet
 
 Expected: the intended Kubernetes minor version and `kubeadm`, `kubelet`, `kubectl` in the APT hold list. The kubelet may fail or restart **before** the node is initialized or joined. After the complete cluster setup it should be active.
 
-### Step 4.4: Initialize the Control Plane
+### Step 4.4: Verify Control-Plane Initialization
 
 **Control plane:**
 
@@ -426,7 +363,7 @@ If an Ansible-executed `kubectl` command instead connects to `localhost:8080`, t
 KUBECONFIG=/home/ubuntu/.kube/config kubectl get nodes
 ```
 
-### Step 4.5: Join the Worker Nodes
+### Step 4.5: Verify Worker Membership
 
 **Control plane:**
 
@@ -454,7 +391,7 @@ sudo kubeadm token list
 
 This lists bootstrap tokens and expiration timestamps. **The setup playbook generates a new bootstrap token on each full run**, but joined workers are protected by the Ansible `creates` guard.
 
-### Step 4.6: Install Helm
+### Step 4.6: Verify Helm Installation
 
 **Control plane:**
 
@@ -465,7 +402,7 @@ command -v helm
 
 Expected: Helm is installed at `/usr/local/bin/helm` with the version currently installed on that VM.
 
-### Step 4.7: Install Cilium Networking
+### Step 4.7: Verify Cilium Networking
 
 **Control plane:**
 
@@ -500,7 +437,7 @@ kubectl -n kube-system get service kube-dns
 
 Expected: CoreDNS Pods running and the kube-dns Service present. This is a readiness check, **not** a full DNS query test.
 
-### Step 4.8: Configure kubectl Shortcuts
+### Step 4.8: Verify kubectl Shortcuts
 
 Open a **new interactive Bash shell** on an Ubuntu VM, or run `source ~/.bashrc`:
 
@@ -514,7 +451,7 @@ Expected: `k` expands to `kubectl` and its Bash completion function is registere
 
 ### Step 4.9: Run a Kubernetes Smoke Test
 
-**Recommended: management machine.** The published playbook marks this play with `smoke-test`:
+**Mutating test — management machine (recommended):** This creates and deletes a temporary NGINX Pod. The playbook marks this play with `smoke-test`:
 
 ```bash
 ansible-playbook \
