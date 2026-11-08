@@ -197,6 +197,8 @@ The Terraform state is local to the Terraform working directory and is ignored b
 
 The optional connection and temporary-clone tests are documented in [tests.md](tests.md). Their Terraform states are independent of the main provisioning directory.
 
+![img.png](/media/ubntu-vms-provisioned.png)
+
 ## Phase 3: Configure Ubuntu with Ansible
 
 This phase configures Ubuntu itself: host-name resolution, package upgrades, time synchronization, and a password for **local Proxmox console login**.

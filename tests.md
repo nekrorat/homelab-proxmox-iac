@@ -114,6 +114,38 @@ test -f /etc/pve/corosync.conf && echo 'Cluster configuration present'
 
 Expected: cluster name `homelab`, three nodes, and quorate cluster status once all nodes have joined.
 
+##### Verify Proxmox API Readiness
+
+Cluster membership does not confirm that every node's HTTPS API is responding. Before using Terraform, check all three nodes on port `8006`.
+
+**Proxmox host `pve01`:** Run over SSH or through the dashboard's node **Shell**:
+
+```bash
+for ip in 192.168.8.21 192.168.8.22 192.168.8.23; do
+  echo "Checking $ip..."
+  curl --noproxy '*' -k -sS \
+    --connect-timeout 5 \
+    --max-time 10 \
+    -o /dev/null \
+    -w 'HTTP %{http_code}, total %{time_total}s\n' \
+    "https://$ip:8006/api2/json/version"
+done
+```
+
+Expected: each node returns an HTTP response. A `401` authentication response confirms that the HTTPS API is reachable; a `200` response also confirms reachability. This unauthenticated check does not validate the Terraform token or its permissions. `--noproxy '*'` connects directly to the lab nodes, and `-k` skips certificate verification for the lab's self-signed certificates.
+
+A timeout, connection error, or HTTP `000` means curl did not receive an HTTP response. Investigate connectivity and the affected node's API service before proceeding. An HTTP `5xx` response also needs investigation, even though the service responded.
+
+**Affected Proxmox host:**
+
+```bash
+ls -l /etc/pve/local/pve-ssl.{pem,key}
+systemctl status pveproxy --no-pager
+journalctl -u pveproxy -n 30 --no-pager
+```
+
+Check for missing certificate files and service errors. If custom certificates are configured, also inspect `/etc/pve/local/pveproxy-ssl.pem` and `/etc/pve/local/pveproxy-ssl.key`; these take precedence over the default certificate files. See the [Proxmox API proxy documentation](https://github.com/proxmox/pve-docs/blob/master/pveproxy.adoc) for service and certificate details.
+
 #### Step 1.3.7: Verify Terraform API Access
 
 **Management machine:**
@@ -163,11 +195,7 @@ Alternatively, use the [dashboard checks in the README](README.md#check-the-prox
 
 Review `vm-provision/variables.tf` for all six VM names, VM IDs, host placement, IPs, memory, storage, and the SSH public-key path. Check for conflicts before deploying. This is a configuration review rather than a runtime test.
 
-Unless labeled otherwise, commands in this section run on the **management machine**. Load your Proxmox API token environment before using the provider:
-
-```bash
-source proxmox-config/terraform-api-token.env
-```
+Unless labeled otherwise, commands in this section run on the **management machine**.
 
 ### Step 2.2: Test Terraform's Proxmox Connection (Optional)
 
