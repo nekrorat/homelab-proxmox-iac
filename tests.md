@@ -89,7 +89,7 @@ Expected: the correct hostname from each SSH command with no **remote root passw
 
 ### Step 1.3: Verify the Proxmox Playbook Results
 
-Run these checks after `proxmox-config/configure-proxmox.yaml` completes. The subsection numbers match the task groups in the README and the numbered comments in the playbook. This guide includes checks for Steps 1.3.1, 1.3.6, 1.3.7, and 1.3.10; the full execution sequence is listed in the [README](README.md#phase-1-configure-proxmox-with-ansible).
+Run these checks after `proxmox-config/configure-proxmox.yaml` completes. The subsection numbers match the task groups in the [README](README.md#phase-1-configure-proxmox-with-ansible).
 
 #### Step 1.3.1: Verify Proxmox Package Repositories
 
@@ -155,9 +155,7 @@ Expected: VM `9000` exists, and its configuration contains:
 | `serial0` | `socket` |
 | `vga` | `serial0` |
 
-Alternatively, in the **Proxmox dashboard**, select template `9000` under `pve01`. Confirm it is displayed as a template, inspect the disk, Cloud-Init drive, and serial console under **Hardware**, and check the boot order under **Options**.
-
-These checks verify template configuration. To confirm it can produce a working Ubuntu VM, use the optional [template-clone test](#step-23-test-the-ubuntu-template-clone-optional).
+Alternatively, use the [dashboard checks in the README](README.md#check-the-proxmox-dashboard-optional) to inspect the template.
 
 ## 2. Phase 2: Terraform and VM verification
 
