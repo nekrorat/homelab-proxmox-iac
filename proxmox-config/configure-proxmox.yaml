@@ -131,7 +131,7 @@
 
       - name: Initialize Proxmox cluster
         ansible.builtin.command:
-          cmd: pvecm create homelab --link0 192.168.8.21
+          cmd: pvecm create homelab --link0 {{ hostvars['pve01']['ansible_host'] }}
           creates: /etc/pve/corosync.conf
         when: inventory_hostname == 'pve01'
 
@@ -167,7 +167,7 @@
 
       - name: Join Proxmox cluster
         ansible.builtin.command:
-          cmd: pvecm add 192.168.8.21 --use_ssh
+          cmd: pvecm add {{ hostvars['pve01']['ansible_host'] }} --use_ssh
           creates: /etc/pve/corosync.conf
         when: inventory_hostname != 'pve01'
         throttle: 1

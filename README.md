@@ -5,14 +5,15 @@ Infrastructure as Code for a small bare-metal Kubernetes homelab. This repositor
 > **Companion repository:** This project supports the **Kubernetes Homelab** article series, particularly the infrastructure automation and Kubernetes installation walkthroughs. The documentation here is also **standalone**: you can follow the instructions below without reading the articles.
 >
 > 
-> Previously published articles:
+> Published articles:
 > - [Part 1: Physical Network](https://www.linkedin.com/pulse/kubernetes-homelab-part-1-physical-network-rasul-abdulmagomedov-vafwe/)
 > - [Part 2: Automating Proxmox Installation with PXE/iPXE](https://www.linkedin.com/pulse/kubernetes-homelab-part-2-automating-proxmox-pxe-abdulmagomedov-fieqe/)
+> - [Part 3: Automating Proxmox and Provisioning Ubuntu VMs](https://www.linkedin.com/pulse/kubernetes-homelab-part-3-automating-proxmox-ubuntu-abdulmagomedov-ovk8e/)
 >
 > The example below shows the network setup used throughout the article
 > ![k8-network](/media/k8-network.png)
 > 
-> The [Homelab Barebone repository](https://github.com/nekrorat/homelab-barebone) covers the earlier PXE/iPXE and automated bare-metal installation stage. **This repository begins with Proxmox VE already installed** on the three physical hosts. The IaC and Kubernetes articles are part of the same series, but this README does not require their publication links.
+> The [Homelab Barebone repository](https://github.com/nekrorat/homelab-barebone) covers the earlier PXE/iPXE and automated bare-metal installation stage. **This repository begins with Proxmox VE already installed** on the three physical hosts.
 
 **Testing and verification:** See [tests.md](tests.md) for prerequisite checks, verification after each phase, optional Terraform tests, and Kubernetes smoke tests.
 
@@ -83,7 +84,7 @@ cd homelab-proxmox-iac
 Before running anything, review the environment-specific values in:
 
 - `proxmox-config/inventory/hosts.ini` and `proxmox-config/group_vars/proxmox.yaml`
-- `proxmox-config/configure-proxmox.yaml`, which contains some example-specific cluster and primary-node addresses
+- `proxmox-config/configure-proxmox.yaml`, which uses cluster name `homelab` and initial node `pve01`; the node's IP address comes from the inventory
 - `vm-provision/variables.tf`, which defines VM names, IDs, addresses, resource sizes, storage, and SSH public-key path
 - `ubuntu-config/inventory/hosts.ini`, which must correspond to the Terraform-created VMs
 - `kubernetes-config/group_vars/kubernetes.yaml`, which selects component versions
