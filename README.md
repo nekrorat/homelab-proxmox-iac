@@ -105,7 +105,7 @@ Do not apply the default IP addresses or VM IDs to an environment where they are
 | 1.3.7 | Configure Terraform API Access | [Check](tests.md#step-137-verify-terraform-api-access) |
 | 1.3.8 | Download the Ubuntu Cloud Image | — |
 | 1.3.9 | Create the Ubuntu Base VM and Import Its Disk | — |
-| 1.3.10 | Configure Cloud-Init and Convert the VM into a Template | — |
+| 1.3.10 | Configure Cloud-Init and Convert the VM into a Template | [Check](tests.md#step-1310-verify-the-ubuntu-cloud-init-template) |
 
 ### First-time SSH setup
 
@@ -155,7 +155,7 @@ source proxmox-config/terraform-api-token.env
 
 The file exports `PROXMOX_VE_ENDPOINT` and `PROXMOX_VE_API_TOKEN`. Source it again in each new shell session where you use Terraform. **Preserve it securely:** Proxmox does not show the existing token secret again, so a playbook rerun cannot reconstruct a lost local token file from an existing token.
 
-> **Security note:** The example creates a powerful Proxmox API token and the Terraform provider uses `insecure = true` for a lab with self-signed TLS certificates. For other environments, use appropriately scoped credentials and a trusted certificate chain. The included subscription customization modifies Proxmox-installed UI files and is a lab convenience, not a requirement for cluster operation.
+> **Security note:** The example creates a powerful Proxmox API token and the Terraform provider uses `insecure = true` for a lab with self-signed TLS certificates. For other environments, use appropriately scoped credentials and a trusted certificate chain.
 
 Verify the Proxmox results using the [command-line checks](tests.md#1-phase-1-proxmox-verification) or the optional dashboard walkthrough below. Check the local API credential file on the management machine before continuing with Terraform.
 

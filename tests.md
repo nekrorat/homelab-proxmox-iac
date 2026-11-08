@@ -89,7 +89,7 @@ Expected: the correct hostname from each SSH command with no **remote root passw
 
 ### Step 1.3: Verify the Proxmox Playbook Results
 
-Run these checks after `proxmox-config/configure-proxmox.yaml` completes. The subsection numbers match the task groups in the README and the numbered comments in the playbook. This guide retains checks for Steps 1.3.1, 1.3.6, and 1.3.7; the full execution sequence is listed in the [README](README.md#phase-1-configure-proxmox-with-ansible).
+Run these checks after `proxmox-config/configure-proxmox.yaml` completes. The subsection numbers match the task groups in the README and the numbered comments in the playbook. This guide includes checks for Steps 1.3.1, 1.3.6, 1.3.7, and 1.3.10; the full execution sequence is listed in the [README](README.md#phase-1-configure-proxmox-with-ansible).
 
 #### Step 1.3.1: Verify Proxmox Package Repositories
 
@@ -134,6 +134,30 @@ pveum user token list root@pam
 ```
 
 Expected: token named `terraform`. Listing a token does **not** reveal its secret. If the local token file is missing, retrieve credentials from your secure backup or deliberately rotate the token before using Terraform.
+
+#### Step 1.3.10: Verify the Ubuntu Cloud-Init Template
+
+**Proxmox host `pve01`:** Run these commands over SSH or in the dashboard's node **Shell**. Replace `9000` if you changed `template_base_id`.
+
+```bash
+qm list
+qm config 9000
+```
+
+Expected: VM `9000` exists, and its configuration contains:
+
+| Setting | Expected value |
+| --- | --- |
+| `template` | `1`, confirming conversion into a template |
+| `scsi0` | The imported Ubuntu disk on the configured storage (`local-lvm` by default) |
+| `ide2` | A Cloud-Init drive on the configured storage |
+| `boot` | `order=scsi0` |
+| `serial0` | `socket` |
+| `vga` | `serial0` |
+
+Alternatively, in the **Proxmox dashboard**, select template `9000` under `pve01`. Confirm it is displayed as a template, inspect the disk, Cloud-Init drive, and serial console under **Hardware**, and check the boot order under **Options**.
+
+These checks verify template configuration. To confirm it can produce a working Ubuntu VM, use the optional [template-clone test](#step-23-test-the-ubuntu-template-clone-optional).
 
 ## 2. Phase 2: Terraform and VM verification
 
